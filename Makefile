@@ -2,7 +2,7 @@
 
 default: all
 
-.PHONY: clean clean-all clean-fs all qemu qemu-gdb gdb print-gdbport grade backup submit
+.PHONY: clean clean-all clean-fs all qemu qemu-gdb gdb print-gdbport grade submit
 
 # REMEMBER TO MAKE CLEAN AFTER CHANGE ME!
 STAGE  := phase1
@@ -49,11 +49,8 @@ print-gdbport:
 grade:
 	grade/grade-$(STAGE)
 
-backup:
-	python3 ok --config okconfig/$(STAGE).ok
-
 submit:
-	python3 ok --config okconfig/$(STAGE).ok --submit
+	python3 ok --config okconfig/$(STAGE).ok --insecure --submit
 
 # Bootloader
 
@@ -155,7 +152,7 @@ $(USER_OBJS): $(OBJDIR)/%.o: %.c
 	@$(CC) -c $(CFLAGS) -I $(LIB_INC) -I $(USER_INC) $< -o $@.tmp
 	@objcopy -R .note -R .comment -R .note.gnu.property $@.tmp $@
 
-$(USER_ELFS): $(OBJDIR)/%: $(OBJDIR)/%.o $(USER_LIBOBJ)
+$(USER_ELFS): $(OBJDIR)/%: $(OBJDIR)/%.o $(USER_LIBOBJ) $(LIB_ARCH)
 	@echo LD "->" $@
 	@$(LD) $(LDFLAGS) -e _start -Ttext $(USER_ADDR) $< $(USER_LIBOBJ) $(LIB_ARCH) -o $@
 
