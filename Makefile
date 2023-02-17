@@ -50,7 +50,7 @@ grade:
 	grade/grade-$(STAGE)
 
 submit:
-	python3 ok --config okconfig/$(STAGE).ok --insecure --submit
+	python3 ok --config okconfig/$(STAGE).ok --submit
 
 # Bootloader
 
