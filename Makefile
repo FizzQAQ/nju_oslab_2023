@@ -5,7 +5,7 @@ default: all
 .PHONY: clean clean-all clean-fs all qemu qemu-gdb gdb print-gdbport grade submit
 
 # REMEMBER TO MAKE CLEAN AFTER CHANGE ME!
-STAGE  := phase3
+STAGE  := phase4
 STAGES := phase1 phase2 phase3 phase4 phase5 phase6
 
 ifeq ($(filter $(STAGES), $(STAGE)), ) # STAGE must be valid

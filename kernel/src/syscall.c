@@ -118,14 +118,10 @@ int sys_wait(int *status) {
   if(!proc_curr()->child_num){
     return -1;
   }
+  sem_p(&proc_curr()->zombie_sem);
+  proc_t* ans=proc_findzombie(proc_curr());
   
-  proc_t* ans;
-  while(1){
-    ans=proc_findzombie(proc_curr());
-    if(ans!=NULL){break;}
-    proc_yield();
   
-  }
   if(status!=NULL){
     *status=ans->exit_code;
   }
@@ -137,19 +133,47 @@ int sys_wait(int *status) {
 }
 
 int sys_sem_open(int value) {
-  TODO(); // Lab2-5
+  int index=proc_allocusem(proc_curr());
+  if(index==-1){
+    return -1;
+  }
+  usem_t* temp=usem_alloc(value);
+  if(temp==NULL){
+    return -1;
+  }
+  proc_curr()->usems[index]=temp;
+  return index;
 }
 
 int sys_sem_p(int sem_id) {
-  TODO(); // Lab2-5
+  usem_t* temp=proc_getusem(proc_curr(),sem_id);
+  if(temp==NULL)
+  {
+    return -1;
+  }
+  sem_p(&temp->sem);
+  return 0;
 }
 
 int sys_sem_v(int sem_id) {
-  TODO(); // Lab2-5
+  usem_t* temp=proc_getusem(proc_curr(),sem_id);
+  if(temp==NULL)
+  {
+    return -1;
+  }
+  sem_v(&temp->sem);
+  return 0;
 }
 
 int sys_sem_close(int sem_id) {
-  TODO(); // Lab2-5
+  usem_t* temp=proc_getusem(proc_curr(),sem_id);
+  if(temp==NULL)
+  {
+    return -1;
+  }
+  usem_close(temp);
+  proc_curr()->usems[sem_id]=NULL;
+  return 0;
 }
 
 int sys_open(const char *path, int mode) {

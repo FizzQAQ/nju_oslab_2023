@@ -13,6 +13,8 @@ void init_proc() {
   pcb[0].status=RUNNING;
   pcb[0].pgdir=vm_curr();
   pcb[0].kstack=(void*)(KER_MEM-PGSIZE);
+  
+  sem_init(&pcb[0].zombie_sem,0);
   // Lab2-1, set status and pgdir
   // Lab2-4, init zombie_sem
   // Lab3-2, set cwd
@@ -31,6 +33,10 @@ proc_t *proc_alloc() {
       pcb[i].ctx= &pcb[i].kstack->ctx;
       pcb[i].parent=NULL;
       pcb[i].child_num=0;
+      for(size_t j=0;j<MAX_USEM;j++){
+        pcb[i].usems[j]=NULL;
+      }
+      sem_init(&pcb[i].zombie_sem,0);
       return &pcb[i];
     }
   }
@@ -73,6 +79,9 @@ void proc_copycurr(proc_t *proc) {
   *proc->ctx=curr->kstack->ctx;
   proc->ctx->eax=0;
   proc->parent=curr;
+  for(size_t j=0;j<MAX_USEM;j++){
+        proc->usems[j]=curr->usems[j];
+      }
   curr->child_num++;
   // Lab2-2: copy curr proc
   // Lab2-5: dup opened usems
@@ -84,6 +93,11 @@ void proc_copycurr(proc_t *proc) {
 void proc_makezombie(proc_t *proc, int exitcode) {
   proc->status=ZOMBIE;
   proc->exit_code=exitcode;
+  if(proc->parent!=NULL)
+  sem_v(&proc->parent->zombie_sem);
+  for(size_t j=0;j<MAX_USEM;j++)
+  if(proc->usems[j]!=NULL)
+  usem_close(proc->usems[j]);
   for(int i=0;i<PROC_NUM;i++)
   {
     if (pcb[i].parent==proc){
@@ -119,13 +133,17 @@ void proc_block() {
 }
 
 int proc_allocusem(proc_t *proc) {
-  // Lab2-5: find a free slot in proc->usems, return its index, or -1 if none
-  TODO();
+  for(size_t j=0;j<MAX_USEM;j++){
+        if(proc->usems[j]==NULL){
+          return j;
+        }
+      }
+  return -1;
 }
 
 usem_t *proc_getusem(proc_t *proc, int sem_id) {
-  // Lab2-5: return proc->usems[sem_id], or NULL if sem_id out of bound
-  TODO();
+  if(sem_id>=MAX_USEM) return NULL;
+  return proc->usems[sem_id];
 }
 
 int proc_allocfile(proc_t *proc) {

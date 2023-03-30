@@ -6,9 +6,10 @@
 #define SERIAL_PORT 0x3F8
 
 // TODO: Lab2-4 use sem to sync serial
-//static sem_t serial_sem;
+static sem_t serial_sem;
 
 void init_serial() {
+  sem_init(&serial_sem, 0);
   outb(SERIAL_PORT + 1, 0x00); // you don't need to understand this
   outb(SERIAL_PORT + 3, 0x80); // I don't understand either :)
   outb(SERIAL_PORT + 0, 0x01);
@@ -18,7 +19,7 @@ void init_serial() {
   outb(SERIAL_PORT + 4, 0x0B);
   outb(SERIAL_PORT + 1, 0x01);
   putchar('\n'); // start a new line
-  //sem_init(&serial_sem, 0);
+  
 }
 
 static inline bool serial_idle() {
@@ -39,7 +40,11 @@ static void push_back(char ch) {
   buffer[tail++ % BUFFER_SIZE] = ch;
   // TODO: Lab2-4 V(sem) tail-clapboard times if ch=='\n'
   if (ch == '\n') {
+    for(size_t i=0;i<tail-clapboard;i++){
+      sem_v(&serial_sem);
+    }
     clapboard = tail;
+    
   }
 }
 
@@ -87,12 +92,9 @@ void serial_handle() {
 
 char getchar() {
   char ch;
-  while ((ch = pop_front()) == 0) {
-    serial_handle();
-    //sti(); hlt(); cli(); // change to me in Lab1-7
-    proc_yield(); // change to me in Lab2-1
-  }
-  // TODO: Lab2-4 rewrite getchar with sem, P(sem) then pop_front
+  sem_p(&serial_sem);
+  ch=pop_front();// TODO: Lab2-4 rewrite getchar with sem, P(sem) then pop_front
+  assert(ch);
   return ch;
 }
 
