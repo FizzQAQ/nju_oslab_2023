@@ -21,6 +21,12 @@ void do_syscall(Context *ctx) {
   uint32_t arg4 = 0;
   uint32_t arg5 = 0;
   int res;
+  sysnum=ctx->eax;
+  arg1=ctx->ebx;
+  arg2=ctx->ecx;
+  arg3=ctx->edx;
+  arg4=ctx->esi;
+  arg5=ctx->edi;
   if (sysnum < 0 || sysnum >= NR_SYS) {
     res = -1;
   } else {
@@ -41,12 +47,13 @@ int sys_read(int fd, void *buf, size_t count) {
 
 int sys_brk(void *addr) {
   // TODO: Lab1-5
-  static size_t brk = 0; // use brk of proc instead of this in Lab2-1
+  size_t brk = proc_curr()->brk; // use brk of proc instead of this in Lab2-1
   size_t new_brk = PAGE_UP(addr);
   if (brk == 0) {
     brk = new_brk;
   } else if (new_brk > brk) {
-    TODO();
+    vm_map(vm_curr(),brk,new_brk-brk,7);
+    brk=new_brk;
   } else if (new_brk < brk) {
     // can just do nothing
   }
@@ -54,15 +61,37 @@ int sys_brk(void *addr) {
 }
 
 void sys_sleep(int ticks) {
-  TODO(); // Lab1-7
+  int pre_tick=get_tick(); // Lab1-7
+  while(1){
+  int now_tick=get_tick();
+  //sti(); hlt(); cli();
+  proc_yield();
+  if(now_tick-pre_tick>=ticks)
+    break;
+  } 
 }
 
 int sys_exec(const char *path, char *const argv[]) {
-  TODO(); // Lab1-8, Lab2-1
+
+  PD *pd=vm_alloc();
+  Context  ctx;
+  if(load_user(pd,&ctx,path,argv)==-1){
+    kfree(pd);
+    return -1;
+  }
+  else{
+    PD *pre=vm_curr();
+    set_cr3(pd);
+    proc_curr()->pgdir=pd;
+    kfree(pre);
+    irq_iret(&ctx);
+}
+
+
 }
 
 int sys_getpid() {
-  TODO(); // Lab2-1
+  return  proc_curr()->pid; // Lab2-1
 }
 
 void sys_yield() {
@@ -70,15 +99,41 @@ void sys_yield() {
 }
 
 int sys_fork() {
-  TODO(); // Lab2-2
+  proc_t * pcb=proc_alloc();
+  if(pcb==NULL){
+    return -1;
+  }
+  proc_copycurr(pcb);
+  proc_addready(pcb);
+  return pcb->pid;
 }
 
 void sys_exit(int status) {
-  TODO(); // Lab2-3
+  proc_makezombie(proc_curr(),status);
+  INT(0x81);
+  assert(0);
 }
 
 int sys_wait(int *status) {
-  TODO(); // Lab2-3, Lab2-4
+  if(!proc_curr()->child_num){
+    return -1;
+  }
+  
+  proc_t* ans;
+  while(1){
+    ans=proc_findzombie(proc_curr());
+    if(ans!=NULL){break;}
+    proc_yield();
+  
+  }
+  if(status!=NULL){
+    *status=ans->exit_code;
+  }
+    int pi=ans->pid;
+    proc_free(ans);
+    proc_curr()->child_num--;
+    return pi;
+  
 }
 
 int sys_sem_open(int value) {

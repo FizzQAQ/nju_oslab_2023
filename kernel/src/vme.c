@@ -1,21 +1,30 @@
 #include "klib.h"
 #include "vme.h"
 #include "proc.h"
+typedef union free_page
+{
+  union free_page *next;
+  char buf[PGSIZE];
+} page_t;
+
+page_t *free_page_list;
 
 static TSS32 tss;
 
-void init_gdt() {
+void init_gdt()
+{
   static SegDesc gdt[NR_SEG];
-  gdt[SEG_KCODE] = SEG32(STA_X | STA_R,   0,     0xffffffff, DPL_KERN);
-  gdt[SEG_KDATA] = SEG32(STA_W,           0,     0xffffffff, DPL_KERN);
-  gdt[SEG_UCODE] = SEG32(STA_X | STA_R,   0,     0xffffffff, DPL_USER);
-  gdt[SEG_UDATA] = SEG32(STA_W,           0,     0xffffffff, DPL_USER);
-  gdt[SEG_TSS]   = SEG16(STS_T32A,     &tss,  sizeof(tss)-1, DPL_KERN);
+  gdt[SEG_KCODE] = SEG32(STA_X | STA_R, 0, 0xffffffff, DPL_KERN);
+  gdt[SEG_KDATA] = SEG32(STA_W, 0, 0xffffffff, DPL_KERN);
+  gdt[SEG_UCODE] = SEG32(STA_X | STA_R, 0, 0xffffffff, DPL_USER);
+  gdt[SEG_UDATA] = SEG32(STA_W, 0, 0xffffffff, DPL_USER);
+  gdt[SEG_TSS] = SEG16(STS_T32A, &tss, sizeof(tss) - 1, DPL_KERN);
   set_gdt(gdt, sizeof(gdt[0]) * NR_SEG);
   set_tr(KSEL(SEG_TSS));
 }
 
-void set_tss(uint32_t ss0, uint32_t esp0) {
+void set_tss(uint32_t ss0, uint32_t esp0)
+{
   tss.ss0 = ss0;
   tss.esp0 = esp0;
 }
@@ -23,7 +32,8 @@ void set_tss(uint32_t ss0, uint32_t esp0) {
 static PD kpd;
 static PT kpt[PHY_MEM / PT_SIZE] __attribute__((used));
 
-void init_page() {
+void init_page()
+{
   extern char end;
   panic_on((size_t)(&end) >= KER_MEM - PGSIZE, "Kernel too big (MLE)");
   static_assert(sizeof(PTE) == 4, "PTE must be 4 bytes");
@@ -31,57 +41,126 @@ void init_page() {
   static_assert(sizeof(PT) == PGSIZE, "PT must be one page");
   static_assert(sizeof(PD) == PGSIZE, "PD must be one page");
   // Lab1-4: init kpd and kpt, identity mapping of [0 (or 4096), PHY_MEM)
-  TODO();
+  for (int i = 0; i < PHY_MEM / PT_SIZE; i++)
+  {
+    kpd.pde[i].val = MAKE_PDE(&kpt[i], 1);
+  }
+  for (int i = 0; i < PHY_MEM / PT_SIZE; i++)
+  {
+    for (int j = 0; j < NR_PTE; j++)
+    {
+      kpt[i].pte[j].val = MAKE_PTE((i << DIR_SHIFT) | (j << TBL_SHIFT), 1);
+    }
+  }
   kpt[0].pte[0].val = 0;
   set_cr3(&kpd);
   set_cr0(get_cr0() | CR0_PG);
   // Lab1-4: init free memory at [KER_MEM, PHY_MEM), a heap for kernel
-  TODO();
+  free_page_list = (void *)KER_MEM;
+  int PG_num = (PHY_MEM - KER_MEM) / PGSIZE;
+  for (int i = 0; i < PG_num - 1; i++)
+  {
+    free_page_list->next = free_page_list + 1;
+    free_page_list = free_page_list->next;
+  }
+  free_page_list = (void *)KER_MEM;
+  (free_page_list + PG_num - 1)->next = NULL;
 }
-
-void *kalloc() {
+void *kalloc()
+{
   // Lab1-4: alloc a page from kernel heap, abort when heap empty
-  TODO();
+  if (free_page_list->next == NULL)
+  {
+    assert(0);
+  }
+  else
+  {
+    void *ans = free_page_list;
+    void *temp = free_page_list->next;
+    free_page_list->next = NULL;
+    free_page_list = temp;
+    return ans;
+  }
 }
 
-void kfree(void *ptr) {
+void kfree(void *ptr)
+{
+  page_t *temp = (page_t *)ptr;
+  temp->next = free_page_list;
+  free_page_list = temp;
   // Lab1-4: free a page to kernel heap
   // you can just do nothing :)
-  //TODO();
 }
 
-PD *vm_alloc() {
+PD *vm_alloc()
+{
   // Lab1-4: alloc a new pgdir, map memory under PHY_MEM identityly
-  TODO();
+  PD *pd = kalloc();
+  for (int i = 0; i < NR_PDE; i++)
+  {
+    if (i < 32)
+      pd->pde[i].val = MAKE_PDE(&kpt[i], 1);
+    else
+      pd->pde[i].val = 0;
+  }
+  return pd;
 }
 
-void vm_teardown(PD *pgdir) {
+void vm_teardown(PD *pgdir)
+{
+  
   // Lab1-4: free all pages mapping above PHY_MEM in pgdir, then free itself
   // you can just do nothing :)
-  //TODO();
+  
 }
 
-PD *vm_curr() {
-  return (PD*)PAGE_DOWN(get_cr3());
+PD *vm_curr()
+{
+  return (PD *)PAGE_DOWN(get_cr3());
 }
 
-PTE *vm_walkpte(PD *pgdir, size_t va, int prot) {
+PTE *vm_walkpte(PD *pgdir, size_t va, int prot)
+{
+  assert((prot & ~7) == 0);
+  int pd_index = ADDR2DIR(va);
+  PDE *pde = &(pgdir->pde[pd_index]);
+  PT *pt = PDE2PT(*pde);
+  int pt_index = ADDR2TBL(va);
+  if (pde->present==0)
+  {
+    if (!prot)
+    {
+      return NULL;
+    }
+    pt = kalloc();
+    memset(pt,0,PGSIZE);
+    pde->val = MAKE_PDE(pt, prot);
+  }
+  else
+  {
+    pde->val |= prot;
+  }
+  PTE *pte = &(pt->pte[pt_index]);
+  return pte;
   // Lab1-4: return the pointer of PTE which match va
   // if not exist (PDE of va is empty) and prot&1, alloc PT and fill the PDE
   // if not exist (PDE of va is empty) and !(prot&1), return NULL
   // remember to let pde's prot |= prot, but not pte
-  assert((prot & ~7) == 0);
-  TODO();
 }
 
-void *vm_walk(PD *pgdir, size_t va, int prot) {
+void *vm_walk(PD *pgdir, size_t va, int prot)
+{
+  PTE *pte = vm_walkpte(pgdir, va, prot);
+  void *page = PTE2PG(*pte);
+  void *pa = (void *)((uint32_t)page | ADDR2OFF(va));
+  return pa;
   // Lab1-4: translate va to pa
   // if prot&1 and prot voilation ((pte->val & prot & 7) != prot), call vm_pgfault
   // if va is not mapped and !(prot&1), return NULL
-  TODO();
 }
 
-void vm_map(PD *pgdir, size_t va, size_t len, int prot) {
+void vm_map(PD *pgdir, size_t va, size_t len, int prot)
+{
   // Lab1-4: map [PAGE_DOWN(va), PAGE_UP(va+len)) at pgdir, with prot
   // if have already mapped pages, just let pte->prot |= prot
   assert(prot & PTE_P);
@@ -90,23 +169,45 @@ void vm_map(PD *pgdir, size_t va, size_t len, int prot) {
   size_t end = PAGE_UP(va + len);
   assert(start >= PHY_MEM);
   assert(end >= start);
-  TODO();
+  size_t PG_num = (end - start) / PGSIZE;
+  for (size_t i = 0; i < PG_num; i++)
+  {
+    PTE *pte = vm_walkpte(pgdir, start + i * PGSIZE, prot);
+    PT* pt=kalloc();
+    pte->val = MAKE_PTE(pt, prot);
+  }
 }
 
-void vm_unmap(PD *pgdir, size_t va, size_t len) {
+void vm_unmap(PD *pgdir, size_t va, size_t len)
+{
   // Lab1-4: unmap and free [va, va+len) at pgdir
   // you can just do nothing :)
-  //assert(ADDR2OFF(va) == 0);
-  //assert(ADDR2OFF(len) == 0);
-  //TODO();
+  // assert(ADDR2OFF(va) == 0);
+  // assert(ADDR2OFF(len) == 0);
+  // TODO();
 }
 
-void vm_copycurr(PD *pgdir) {
-  // Lab2-2: copy memory mapped in curr pd to pgdir
-  TODO();
+void vm_copycurr(PD *pgdir)
+{
+  size_t start = PHY_MEM;
+  size_t end = USR_MEM;
+  size_t PG_num = (end - start) / PGSIZE;
+
+  for (size_t i = 0; i < PG_num; i++)
+  {
+    
+    PTE *pte = vm_walkpte(proc_curr()->pgdir, start + i * PGSIZE,0);
+    if(pte!=NULL&&pte->present){
+      vm_map(pgdir,start + i * PGSIZE,PGSIZE,7);
+      void* pa=vm_walk(pgdir,start + i * PGSIZE,0);
+      memcpy(pa,(void*)(start + i * PGSIZE),PGSIZE);
+      
+    }
+  }
 }
 
-void vm_pgfault(size_t va, int errcode) {
+void vm_pgfault(size_t va, int errcode)
+{
   printf("pagefault @ 0x%p, errcode = %d\n", va, errcode);
   panic("pgfault");
 }

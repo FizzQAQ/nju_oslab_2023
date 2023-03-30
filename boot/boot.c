@@ -3,10 +3,7 @@
 // DO NOT DEFINE ANY NON-LOCAL VARIBLE!
 
 void load_kernel() {
-  char hello[] = {'\n', 'h', 'e', 'l', 'l', 'o', '\n', 0};
-  putstr(hello);
-  while (1) ;
-  // remove both lines above before write codes below
+  
   Elf32_Ehdr *elf = (void *)0x8000;
   copy_from_disk(elf, 255 * SECTSIZE, SECTSIZE);
   Elf32_Phdr *ph, *eph;
@@ -14,9 +11,11 @@ void load_kernel() {
   eph = ph + elf->e_phnum;
   for (; ph < eph; ph++) {
     if (ph->p_type == PT_LOAD) {
+      memcpy((void*)ph->p_vaddr,(void*)(ph->p_offset+(uint32_t)elf),ph->p_filesz);
+		  memset((void*)(ph->p_vaddr+ph->p_filesz),0,ph->p_memsz-ph->p_filesz);
       // TODO: Lab1-2, Load kernel and jump
     }
   }
-  uint32_t entry = 114514; // change me
+  uint32_t entry = elf->e_entry; // change me
   ((void(*)())entry)();
 }

@@ -41,6 +41,7 @@ void irq45();
 void irq46();
 void irq47();
 void irq128();
+void irq129();
 void irqall();
 
 #define PORT_PIC_MASTER 0x20
@@ -96,6 +97,7 @@ void init_cte() {
   idt[46] = GATE32(STS_IG, KSEL(SEG_KCODE), irq46, DPL_KERN);
   idt[47] = GATE32(STS_IG, KSEL(SEG_KCODE), irq47, DPL_KERN);
   idt[128] = GATE32(STS_IG, KSEL(SEG_KCODE), irq128, DPL_USER);
+  idt[129] = GATE32(STS_IG, KSEL(SEG_KCODE), irq129, DPL_KERN);
   // TODO: Lab2-1 set idt[129]
   set_idt(idt, sizeof(idt));
   init_intr();
@@ -107,6 +109,11 @@ void irq_handle(Context *ctx) {
     exception_debug_handler(ctx);
   }
   switch (ctx->irq) {
+  case EX_PF: { vm_pgfault(get_cr2(),ctx->errcode);break;}
+  case EX_SYSCALL:{do_syscall(ctx);break;}
+  case T_IRQ0 + IRQ_COM1:{serial_handle();break;}
+  case T_IRQ0 + IRQ_TIMER:{timer_handle();break;}
+  case 129:{schedule(ctx);break;}
   // TODO: Lab1-5 handle pagefault and syscall
   // TODO: Lab1-7 handle serial and timer
   // TODO: Lab2-1 handle yield

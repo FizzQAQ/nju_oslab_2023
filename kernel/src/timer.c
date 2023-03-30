@@ -17,7 +17,7 @@ void init_timer() {
 
 void timer_handle() {
   ++tick;
-  //proc_yield(); // TODO: uncomment me in Lab2-1
+  proc_yield(); // TODO: uncomment me in Lab2-1
 }
 
 uint32_t get_tick() {

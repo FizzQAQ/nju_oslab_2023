@@ -1,6 +1,6 @@
 #include "ulib.h"
 
-//#define SYSCALL_PUTSTR // TODO: uncomment me at Lab1-5
+#define SYSCALL_PUTSTR // TODO: uncomment me at Lab1-5
 
 #ifndef SYSCALL_PUTSTR
 

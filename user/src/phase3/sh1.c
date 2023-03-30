@@ -18,6 +18,7 @@ int main() {
       argv[argc++] = c;
     }
     if (argc > 0) {
+      argv[argc] = NULL;
       if (exec(argv[0], argv) == -1) {
         printf("sh: exec failed.\n");
       }

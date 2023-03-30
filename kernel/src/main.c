@@ -14,10 +14,10 @@ int main() {
   init_gdt();
   init_serial();
   init_fs();
-  //init_page(); // uncomment me at Lab1-4
-  //init_cte(); // uncomment me at Lab1-5
-  //init_timer(); // uncomment me at Lab1-7
-  //init_proc(); // uncomment me at Lab2-1
+  init_page(); // uncomment me at Lab1-4
+  init_cte(); // uncomment me at Lab1-5
+  init_timer(); // uncomment me at Lab1-7
+  init_proc(); // uncomment me at Lab2-1
   //init_dev(); // uncomment me at Lab3-1
   printf("Hello from OS!\n");
   init_user_and_go();
@@ -31,7 +31,20 @@ void init_user_and_go() {
   // Lab1-8: argv
   // Lab2-1: proc
   // Lab3-2: add cwd
-  uint32_t eip = load_elf(NULL, "loaduser");
-  assert(eip != -1);
-  ((void(*)())eip)();
+proc_t *proc = proc_alloc();
+assert(proc);
+char *argv[] = {"sh", NULL};
+assert(load_user(proc->pgdir, proc->ctx, "sh", argv) == 0);
+proc_addready(proc);
+
+// proc = proc_alloc();
+// assert(proc);
+// argv[1] = "1919810";
+// assert(load_user(proc->pgdir, proc->ctx, "ping1", argv) == 0);
+// proc_addready(proc);
+
+sti();
+while (1) ;
+
+
 }
