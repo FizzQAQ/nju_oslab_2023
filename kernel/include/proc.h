@@ -33,7 +33,7 @@ typedef struct proc {
   int exit_code; // Lab2-3
   sem_t zombie_sem; // Lab2-4
   usem_t *usems[MAX_USEM]; // Lab2-5
-  //file_t *files[MAX_UFILE]; // Lab3-1
+  file_t *files[MAX_UFILE]; // Lab3-1
   //inode_t *cwd; // Lab3-2
 } proc_t;
 

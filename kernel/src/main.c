@@ -18,7 +18,7 @@ int main() {
   init_cte(); // uncomment me at Lab1-5
   init_timer(); // uncomment me at Lab1-7
   init_proc(); // uncomment me at Lab2-1
-  //init_dev(); // uncomment me at Lab3-1
+  init_dev(); // uncomment me at Lab3-1
   printf("Hello from OS!\n");
   init_user_and_go();
   panic("should never come back");

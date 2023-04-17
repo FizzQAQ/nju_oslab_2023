@@ -36,6 +36,9 @@ proc_t *proc_alloc() {
       for(size_t j=0;j<MAX_USEM;j++){
         pcb[i].usems[j]=NULL;
       }
+      for(size_t j=0;j<MAX_UFILE;j++){
+        pcb[i].files[j]=NULL;
+      }
       sem_init(&pcb[i].zombie_sem,0);
       return &pcb[i];
     }
@@ -80,8 +83,20 @@ void proc_copycurr(proc_t *proc) {
   proc->ctx->eax=0;
   proc->parent=curr;
   for(size_t j=0;j<MAX_USEM;j++){
-        proc->usems[j]=curr->usems[j];
-      }
+    if (curr->usems[j]==NULL)
+    {
+      proc->usems[j]=NULL;
+    }
+    else
+    proc->usems[j]=usem_dup(curr->usems[j]);
+  }
+  for(size_t j=0;j<MAX_UFILE;j++){
+    if (curr->files[j]==NULL)
+    {
+      proc->files[j]=NULL;
+    }
+    else proc->files[j]=fdup(curr->files[j]);
+  }
   curr->child_num++;
   // Lab2-2: copy curr proc
   // Lab2-5: dup opened usems
@@ -95,9 +110,15 @@ void proc_makezombie(proc_t *proc, int exitcode) {
   proc->exit_code=exitcode;
   if(proc->parent!=NULL)
   sem_v(&proc->parent->zombie_sem);
-  for(size_t j=0;j<MAX_USEM;j++)
-  if(proc->usems[j]!=NULL)
-  usem_close(proc->usems[j]);
+  for(size_t j=0;j<MAX_USEM;j++){
+    if(proc->usems[j]!=NULL)
+      usem_close(proc->usems[j]);
+  }
+  for(size_t j=0;j<MAX_UFILE;j++)
+  {
+    if(proc->files[j]!=NULL)
+      fclose(proc->files[j]);
+  }
   for(int i=0;i<PROC_NUM;i++)
   {
     if (pcb[i].parent==proc){
@@ -142,18 +163,24 @@ int proc_allocusem(proc_t *proc) {
 }
 
 usem_t *proc_getusem(proc_t *proc, int sem_id) {
-  if(sem_id>=MAX_USEM) return NULL;
+  if(sem_id>=MAX_USEM||sem_id<0) return NULL;
   return proc->usems[sem_id];
 }
 
 int proc_allocfile(proc_t *proc) {
   // Lab3-1: find a free slot in proc->files, return its index, or -1 if none
-  TODO();
+   for(size_t j=0;j<MAX_UFILE;j++){
+        if(proc->files[j]==NULL){
+          return j;
+        }
+      }
+  return -1;
 }
 
 file_t *proc_getfile(proc_t *proc, int fd) {
   // Lab3-1: return proc->files[fd], or NULL if fd out of bound
-  TODO();
+  if(fd>=MAX_UFILE||fd<0) return NULL;
+  return proc->files[fd];
 }
 
 void schedule(Context *ctx) {

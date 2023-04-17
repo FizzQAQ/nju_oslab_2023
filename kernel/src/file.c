@@ -7,7 +7,14 @@ file_t files[TOTAL_FILE];
 
 static file_t *falloc() {
   // Lab3-1: find a file whose ref==0, init it, inc ref and return it, return NULL if none
-  TODO();
+  for(int i=0;i<TOTAL_FILE;i++){
+    if(!files[i].ref){
+      files[i].type=TYPE_NONE;
+      files[i].ref++;
+      return &files[i];
+    }
+  }
+  return NULL;
 }
 
 file_t *fopen(const char *path, int mode) {
@@ -52,30 +59,68 @@ int fread(file_t *file, void *buf, uint32_t size) {
   // Lab3-1, distribute read operation by file's type
   // remember to add offset if type is FILE (check if iread return value >= 0!)
   if (!file->readable) return -1;
-  TODO();
+  if(file->type==TYPE_FILE){
+    int offset=iread(file->inode,file->offset,buf,size);
+    if(offset!=-1){
+      file->offset+=offset;
+    }
+    return offset;
+  }
+  else if(file->type==TYPE_DEV){
+    return file->dev_op->read(buf,size);
+  }
+  else{
+    return -1;
+  }
 }
 
 int fwrite(file_t *file, const void *buf, uint32_t size) {
   // Lab3-1, distribute write operation by file's type
   // remember to add offset if type is FILE (check if iwrite return value >= 0!)
   if (!file->writable) return -1;
-  TODO();
+ if(file->type==TYPE_FILE){
+    int offset=iwrite(file->inode,file->offset,buf,size);
+    if(offset!=-1){
+      file->offset+=offset;
+    }
+    return offset;
+  }
+  else if(file->type==TYPE_DEV){
+    return file->dev_op->write(buf,size);
+  }
+  else return -1;
 }
 
 uint32_t fseek(file_t *file, uint32_t off, int whence) {
   // Lab3-1, change file's offset, do not let it cross file's size
   if (file->type == TYPE_FILE) {
-    TODO();
+    if (whence == SEEK_SET)
+    {
+      file->offset=off;
+    }
+    else if (whence == SEEK_CUR)
+    {
+      file->offset+=off;
+    }
+    else if (whence == SEEK_END)
+    {
+      file->offset=isize(file->inode)+off;//self-assertion before(lucky that find it easily)
+    }
+    else assert(0);
+    return file->offset;
   }
   return -1;
 }
 
 file_t *fdup(file_t *file) {
   // Lab3-1, inc file's ref, then return itself
-  TODO();
+  file->ref++;
+  return file;
 }
 
 void fclose(file_t *file) {
   // Lab3-1, dec file's ref, if ref==0 and it's a file, call iclose
-  TODO();
+  file->ref--;
+  if((file->ref==0)&&(file->type==TYPE_FILE))
+    iclose(file->inode);
 }

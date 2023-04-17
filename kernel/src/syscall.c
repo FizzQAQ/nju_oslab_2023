@@ -36,13 +36,26 @@ void do_syscall(Context *ctx) {
 }
 
 int sys_write(int fd, const void *buf, size_t count) {
-  // TODO: rewrite me at Lab3-1
-  return serial_write(buf, count);
+  file_t* temp=proc_getfile(proc_curr(),fd);
+  if(temp==NULL)
+  {
+    return -1;
+  }
+  //assert(0);
+  return fwrite(temp,buf,count);
+
 }
 
 int sys_read(int fd, void *buf, size_t count) {
   // TODO: rewrite me at Lab3-1
-  return serial_read(buf, count);
+  file_t* temp=proc_getfile(proc_curr(),fd);
+  if(temp==NULL)
+  {
+    return -1;
+  }
+  //assert(0);
+  return fread(temp,buf,count);
+  
 }
 
 int sys_brk(void *addr) {
@@ -50,10 +63,10 @@ int sys_brk(void *addr) {
   size_t brk = proc_curr()->brk; // use brk of proc instead of this in Lab2-1
   size_t new_brk = PAGE_UP(addr);
   if (brk == 0) {
-    brk = new_brk;
+    proc_curr()->brk = new_brk;
   } else if (new_brk > brk) {
     vm_map(vm_curr(),brk,new_brk-brk,7);
-    brk=new_brk;
+    proc_curr()->brk=new_brk;
   } else if (new_brk < brk) {
     // can just do nothing
   }
@@ -176,24 +189,76 @@ int sys_sem_close(int sem_id) {
   return 0;
 }
 
-int sys_open(const char *path, int mode) {
-  TODO(); // Lab3-1
+int sys_open(const char *path, int mode) {//tocheck
+  int index=proc_allocfile(proc_curr());
+  if(index==-1){
+    return -1;
+  }
+  file_t* temp=fopen(path,mode);
+  if(temp==NULL){
+    return -1;
+  }
+  proc_curr()->files[index]=temp;
+  return index;
 }
 
 int sys_close(int fd) {
-  TODO(); // Lab3-1
+  file_t* temp=proc_getfile(proc_curr(),fd);
+  if(temp==NULL)
+  {
+    return -1;
+  }
+  fclose(temp);
+  proc_curr()->files[fd]=NULL;
+  //assert(0);
+  return 0;
 }
 
-int sys_dup(int fd) {
-  TODO(); // Lab3-1
+int sys_dup(int fd) {//tocheck
+  int index=proc_allocfile(proc_curr());
+  if(index==-1){
+    return -1;
+  }
+  file_t* temp=proc_getfile(proc_curr(),fd);
+  if(temp==NULL)
+  {
+    return -1;
+  }
+  proc_curr()->files[index]=temp;
+  fdup(proc_curr()->files[index]);
+  return index;
 }
 
 uint32_t sys_lseek(int fd, uint32_t off, int whence) {
-  TODO(); // Lab3-1
+  file_t* temp=proc_getfile(proc_curr(),fd);
+  if(temp==NULL)
+  {
+    return -1;
+  }
+  int ans=fseek(temp,off,whence);
+  if(ans!=-1)
+  return ans;
+  else return -1;
 }
 
 int sys_fstat(int fd, struct stat *st) {
-  TODO(); // Lab3-1
+  file_t* temp=proc_getfile(proc_curr(),fd);
+  if(temp==NULL)
+  {
+    return -1;
+  }
+  if(temp->type==TYPE_FILE){
+    st->type=itype(temp->inode);
+    st->node=ino(temp->inode);
+    st->size=isize(temp->inode);
+  }
+  else if(temp->type==TYPE_DEV){
+    st->type=TYPE_DEV;
+    st->node=0;
+    st->size=0;
+  }
+  return 0;
+
 }
 
 int sys_chdir(const char *path) {
