@@ -94,19 +94,21 @@ int fwrite(file_t *file, const void *buf, uint32_t size) {
 uint32_t fseek(file_t *file, uint32_t off, int whence) {
   // Lab3-1, change file's offset, do not let it cross file's size
   if (file->type == TYPE_FILE) {
-    if (whence == SEEK_SET)
-    {
+    uint32_t size=isize(file->inode);
+    if(whence==SEEK_SET){
+     
       file->offset=off;
     }
-    else if (whence == SEEK_CUR)
-    {
+    else if(whence==SEEK_CUR){
+    
       file->offset+=off;
+      
     }
-    else if (whence == SEEK_END)
-    {
-      file->offset=isize(file->inode)+off;//self-assertion before(lucky that find it easily)
+    else if(whence==SEEK_END){
+     
+      file->offset=size+off;
+      
     }
-    else assert(0);
     return file->offset;
   }
   return -1;
