@@ -7,6 +7,8 @@
         "tuple": "c",
         "type_traits": "c",
         "utility": "c",
-        "philosopher.h": "c"
+        "philosopher.h": "c",
+        "string_view": "c",
+        "initializer_list": "c"
     }
 }

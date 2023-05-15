@@ -5,7 +5,7 @@
 
 typedef struct inode inode_t;
 
-#define EASY_FS // TODO: comment me at Lab3-2
+//#define EASY_FS // TODO: comment me at Lab3-2
 
 void init_fs();
 

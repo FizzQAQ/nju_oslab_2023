@@ -13,7 +13,7 @@ void init_proc() {
   pcb[0].status=RUNNING;
   pcb[0].pgdir=vm_curr();
   pcb[0].kstack=(void*)(KER_MEM-PGSIZE);
-  
+  pcb[0].cwd=iopen("/",TYPE_NONE);
   sem_init(&pcb[0].zombie_sem,0);
   // Lab2-1, set status and pgdir
   // Lab2-4, init zombie_sem
@@ -33,6 +33,7 @@ proc_t *proc_alloc() {
       pcb[i].ctx= &pcb[i].kstack->ctx;
       pcb[i].parent=NULL;
       pcb[i].child_num=0;
+      pcb[i].cwd=NULL;
       for(size_t j=0;j<MAX_USEM;j++){
         pcb[i].usems[j]=NULL;
       }
@@ -82,6 +83,7 @@ void proc_copycurr(proc_t *proc) {
   *proc->ctx=curr->kstack->ctx;
   proc->ctx->eax=0;
   proc->parent=curr;
+  proc->cwd=idup(curr->cwd);
   for(size_t j=0;j<MAX_USEM;j++){
     if (curr->usems[j]==NULL)
     {
@@ -110,6 +112,7 @@ void proc_makezombie(proc_t *proc, int exitcode) {
   proc->exit_code=exitcode;
   if(proc->parent!=NULL)
   sem_v(&proc->parent->zombie_sem);
+  iclose(proc->cwd);
   for(size_t j=0;j<MAX_USEM;j++){
     if(proc->usems[j]!=NULL)
       usem_close(proc->usems[j]);

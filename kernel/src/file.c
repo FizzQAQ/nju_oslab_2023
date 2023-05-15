@@ -26,17 +26,26 @@ file_t *fopen(const char *path, int mode) {
   //       if file not exist and type==TYPE_NONE, return NULL
   //       if file not exist and type!=TYPE_NONE, create the file as type
   // you can ignore this in Lab3-1
-  int open_type = 114514;
+  int open_type;
+  if(!(mode&O_CREATE)){
+    open_type=TYPE_NONE;
+  }
+  else if(mode&O_DIR){
+    open_type=TYPE_DIR;
+  }
+  else{
+    open_type=TYPE_FILE;
+  }
   ip = iopen(path, open_type);
   if (!ip) goto bad;
   int type = itype(ip);
   if (type == TYPE_FILE || type == TYPE_DIR) {
     // TODO: Lab3-2, if type is not DIR, go bad if mode&O_DIR
-
+    if(type!=TYPE_DIR&&(mode&O_DIR)) goto bad;
     // TODO: Lab3-2, if type is DIR, go bad if mode WRITE or TRUNC
-
+    if(type==TYPE_DIR&&((mode&O_WRONLY)||(mode&O_TRUNC)||(mode&O_RDWR))) goto bad;
     // TODO: Lab3-2, if mode&O_TRUNC, trunc the file
-
+    if(type == TYPE_FILE&&(mode&O_TRUNC)) itrunc(ip);
     fp->type = TYPE_FILE; // file_t don't and needn't distingush between file and dir
     fp->inode = ip;
     fp->offset = 0;

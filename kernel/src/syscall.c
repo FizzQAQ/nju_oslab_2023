@@ -262,7 +262,18 @@ int sys_fstat(int fd, struct stat *st) {
 }
 
 int sys_chdir(const char *path) {
-  TODO(); // Lab3-2
+  inode_t* dir=iopen(path,TYPE_NONE);
+  if(dir==NULL)
+    return -1;
+  else{
+    if(itype(dir)!=TYPE_DIR){
+      iclose(dir);
+      return -1;
+    }
+    iclose(proc_curr()->cwd);
+    proc_curr()->cwd=dir;
+    return 0;
+  }
 }
 
 int sys_unlink(const char *path) {
